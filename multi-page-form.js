@@ -4,7 +4,7 @@ MultiPageForm = class MultiPageForm {
     this._pageMap = pageMap;
     this._doc = new ReactiveVar({});
     this._page = new ReactiveVar(
-      (this._pageMap && this._pageMap.default) ? this._pageMap.default : ''
+      (this._pageMap && this._pageMap.defaultPage) ? this._pageMap.defaultPage : ''
     );
     this._completeFn = opt_completeFn;
     this._errorFn = opt_errorFn;
@@ -16,9 +16,11 @@ MultiPageForm = class MultiPageForm {
 
   get doc() { return this._doc.get(); }
 
-  get currentPage() { return this._page.get() || this.pageMap.default; }
+  get currentPage() { return this._page.get() || this.defaultPage; }
 
-  get default() { return this.pageMap.default; }
+  get defaultPage() { return this.pageMap.defaultPage; }
+
+  get default() { console.log('WARN: MultiPageGorm.default is deprecated'); return this.pageMap.defaultPage; }
 
   get hasNextPage() { return !this.isLast; }
 
