@@ -1,13 +1,15 @@
 MultiPageForm = class MultiPageForm {
-  constructor(pageMap, opt_completeFn, opt_errorFn) {
+
+
+  constructor(pageMap, doc) {
     if (!pageMap) throw new Error('PageMap is required');
     this._pageMap = pageMap;
-    this._doc = new ReactiveVar({});
+    this._doc = new ReactiveVar(doc || {});
     this._page = new ReactiveVar(
       (this._pageMap && this._pageMap.defaultPage) ? this._pageMap.defaultPage : ''
     );
-    this._completeFn = opt_completeFn;
-    this._errorFn = opt_errorFn;
+    this._hookNames = ['onComplete', 'onError', 'onSubmit'];
+    this._hooks = {};
   }
 
   get pageMap() { return this._pageMap || {}; }
@@ -20,9 +22,9 @@ MultiPageForm = class MultiPageForm {
 
   get defaultPage() { return this.pageMap.defaultPage; }
 
-  get default() { console.log('WARN: MultiPageGorm.default is deprecated'); return this.pageMap.defaultPage; }
-
   get hasNextPage() { return !this.isLast; }
+
+  get form() { return this.currentDef.form; }
 
   get isLast() {return !this.currentDef.next; }
 
@@ -33,12 +35,15 @@ MultiPageForm = class MultiPageForm {
   nextPage() {
     if (this.hasNextPage) {
       var next;
-      if (_(this.currentDef.next).isFunction()){
-        var theThis = {
+
+      this.triggerHook('onSubmit', 'next', this.currentPage, this.doc);
+
+      if (_(this.currentDef.next).isFunction()) {
+        var callsThis = {
           pageMap: this.pageMap,
           doc: this.doc
         };
-        next = this.currentDef.next.call(theThis);
+        next = this.currentDef.next.call(callsThis, this.doc);
       } else {
         next = this.currentDef.next;
       }
@@ -48,13 +53,16 @@ MultiPageForm = class MultiPageForm {
 
   prevPage() {
     if (this.hasPrevPage) {
+      var formDoc = AutoForm.getFormValues(this.form);
+      this.triggerHook('onSubmit', 'prev', this.currentPage, formDoc.insertDoc);
+
       var prev;
       if (_(this.currentDef.prev).isFunction()) {
-        var theThis = {
+        var callsThis = {
           pageMap: this.pageMap,
           doc: this.doc
         };
-        prev = this.currentDef.prev.call(theThis);
+        prev = this.currentDef.prev.call(callsThis, this.doc);
       } else {
         prev = this.currentDef.prev;
       }
@@ -77,11 +85,49 @@ MultiPageForm = class MultiPageForm {
     this._page = new ReactiveVar();
   }
 
+  addHooks(hooks) {
+    var that = this;
+    this._hookNames.forEach(function(hook) {
+        var newHook = hooks[hook];
+        that._hooks[hook] = that._hooks[hook] || []; //ensure it is set
+        if (newHook) {
+          that._hooks[hook].push(hooks[hook]);
+        }
+      }
+    );
+  }
+
+  setHooks(hooks) {
+    this._hooks = {};
+    this.addHooks(hooks);
+  }
+
+  triggerHook(hookName, from, ...opt_args) {
+    if (!opt_doc) {
+      opt_doc = AutoForm.getFormValues(this.form);
+    }
+
+    if (!this._hooks) {
+      this.doc[mp.currentPage] = opt_doc;
+    }
+
+    var args = [from].concat(opt_args);
+    var that = this;
+    this._hooks[hookName].forEach(function(hookFn) {
+        hookFn.apply({mp: that}, args);
+      }
+    );
+  }
+
   setOnCompleteFunction(fn) { this._completeFn = fn; }
+
+  setFormSubmitFunction(fn) { this._formSubFn = fn; }
 
   setOnErrorFunction(fn) {this._errorFn = fn; }
 
   get completeFn() {return this._completeFn;}
+
+  get formSubmitFn() {return this._formSubFn;}
 
   get errorFn() {return this._errorFn;}
 
@@ -90,22 +136,18 @@ MultiPageForm = class MultiPageForm {
     return {
       onSuccess: function(formType, result) {
         if (mp.hasNextPage) {
-          mp.nextPage();
+          mp.nextPage(mp.doc, this);
         } else {
-          if (mp.completeFn) {
-            mp.completeFn.call({}, mp.doc);
-          }
+          mp.triggerHook('onComplete', 'success', mp.doc);
           mp.reset();
         }
       },
       onError: function(formType, error) {
-        if (mp.errorFn) {
-          mp.errorFn.call({}, error, mp.doc);
-        }
+        mp.triggerHook('onError', 'error', error, mp.doc);
       },
       onSubmit: function(insertDoc, updateDoc, currentDoc) {
         check(insertDoc, mp.checkType);
-        mp.doc[mp.currentPage] = insertDoc;
+        mp.triggerHook('onSubmit', 'submit', mp.currentPage, insertDoc);
         this.done();
         return false;
       }

@@ -13,8 +13,27 @@ Package.describe({
 Package.onUse(function(api) {
   api.versionsFrom('1.2.1');
   api.use('ecmascript');
+  api.use([
+    'ecmascript',
+    'livedata',
+    'underscore',
+    'deps',
+    'templating',
+    'ui',
+    'blaze',
+    'ejson',
+    'reactive-var',
+    'reactive-dict',
+    'random',
+    'jquery'
+  ], 'client');
+
   api.use('underscore');
-  api.addFiles('multi-page-form.js');
+  api.addFiles([
+    'multi-page-form.js',
+    'mpf-template.html',
+    'mpf-template.js'
+  ], 'client');
   api.export('MultiPageForm');
 });
 
