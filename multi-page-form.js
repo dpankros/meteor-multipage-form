@@ -1,6 +1,7 @@
+const DEBUG = true;
+
+
 MultiPageForm = class MultiPageForm {
-
-
   constructor(pageMap, doc) {
     if (!pageMap) throw new Error('PageMap is required');
     this._pageMap = pageMap;
@@ -8,8 +9,14 @@ MultiPageForm = class MultiPageForm {
     this._page = new ReactiveVar(
       (this._pageMap && this._pageMap.defaultPage) ? this._pageMap.defaultPage : ''
     );
-    this._hookNames = ['onComplete', 'onError', 'onSubmit'];
-    this._hooks = {};
+    this._hookNames = ['onComplete', 'onError', 'onSubmit', 'onNext', 'onPrev', 'saveDocument'];
+    this._hooks = {
+      saveDocument: [function defaultSaveFn(page, doc, mp) {
+        var theDoc = mp.doc || {};
+        theDoc[page] = doc;
+        mp.doc = theDoc;
+      }]
+    };
   }
 
   get pageMap() { return this._pageMap || {}; }
@@ -34,16 +41,15 @@ MultiPageForm = class MultiPageForm {
 
   nextPage() {
     if (this.hasNextPage) {
+      this.triggerHook('onNext', '', this.currentPage, this.doc);
+
       var next;
-
-      this.triggerHook('onSubmit', 'next', this.currentPage, this.doc);
-
       if (_(this.currentDef.next).isFunction()) {
         var callsThis = {
           pageMap: this.pageMap,
           doc: this.doc
         };
-        next = this.currentDef.next.call(callsThis, this.doc);
+        next = this.currentDef.next.call(callsThis, this.doc, this);
       } else {
         next = this.currentDef.next;
       }
@@ -54,7 +60,8 @@ MultiPageForm = class MultiPageForm {
   prevPage() {
     if (this.hasPrevPage) {
       var formDoc = AutoForm.getFormValues(this.form);
-      this.triggerHook('onSubmit', 'prev', this.currentPage, formDoc.insertDoc);
+      this.callSaveTrigger(this.currentPage, formDoc.insertDoc);
+      this.triggerHook('onPrev', this.currentPage, formDoc.insertDoc);
 
       var prev;
       if (_(this.currentDef.prev).isFunction()) {
@@ -62,7 +69,7 @@ MultiPageForm = class MultiPageForm {
           pageMap: this.pageMap,
           doc: this.doc
         };
-        prev = this.currentDef.prev.call(callsThis, this.doc);
+        prev = this.currentDef.prev.call(callsThis, this.doc, this);
       } else {
         prev = this.currentDef.prev;
       }
@@ -102,21 +109,52 @@ MultiPageForm = class MultiPageForm {
     this.addHooks(hooks);
   }
 
-  triggerHook(hookName, from, ...opt_args) {
-    if (!opt_doc) {
-      opt_doc = AutoForm.getFormValues(this.form);
+  triggerHook(hookName, page, doc, mp, opt_arg) {
+    //if (DEBUG) console.log('MultiPageForm.triggerHook',
+    //  hookName,
+    //  page,
+    //  opt_arg
+    //);
+
+    return this.triggerHookWithContext.call(this, hookName, {}, page, doc, mp,
+      opt_arg
+    );
+  }
+
+  triggerHookWithContext(hookName, ctx, page, doc, mp, opt_arg) {
+    if (DEBUG) console.log('MultiPageForm.triggerHookWithContext',
+      hookName,
+      ctx,
+      page,
+      doc,
+      opt_arg
+    );
+
+    //no hooks to run, just return false (no hooks)
+    if (this._hooks[hookName].length === 0) return false;
+
+    if (!doc) {
+      doc = AutoForm.getFormValues(this.form);
     }
 
-    if (!this._hooks) {
-      this.doc[mp.currentPage] = opt_doc;
-    }
-
-    var args = [from].concat(opt_args);
     var that = this;
+    ctx = _(ctx).extend({mp: that});
     this._hooks[hookName].forEach(function(hookFn) {
-        hookFn.apply({mp: that}, args);
+      if (hookFn) hookFn.call(ctx, page, doc, mp, opt_arg);
       }
     );
+    return true; //true === hooks ran
+  }
+
+  callSaveTrigger(page, doc) {
+    var numDone = 0;
+    var ctx = {
+      mp: this,
+      done: function(opt_error) {
+        numDone++;
+      }
+    };
+    this.triggerHookWithContext('saveDocument', ctx, page, doc, this );
   }
 
   setOnCompleteFunction(fn) { this._completeFn = fn; }
@@ -135,21 +173,47 @@ MultiPageForm = class MultiPageForm {
     var mp = this;
     return {
       onSuccess: function(formType, result) {
+        if (DEBUG) console.log('MultiPageForm.onSuccess hook', formType, result);
         if (mp.hasNextPage) {
-          mp.nextPage(mp.doc, this);
+          mp.nextPage();
         } else {
-          mp.triggerHook('onComplete', 'success', mp.doc);
+          mp.triggerHook('onComplete', mp.currentPage, mp.doc, mp);
           mp.reset();
         }
       },
       onError: function(formType, error) {
-        mp.triggerHook('onError', 'error', error, mp.doc);
+        if (DEBUG) console.log('MultiPageForm.onError hook', formType, error);
+        mp.triggerHook('onError', mp.currentPage, mp.doc, mp, error);
       },
       onSubmit: function(insertDoc, updateDoc, currentDoc) {
+        if (DEBUG) console.log('MultiPageForm.onSubmit hook', insertDoc,
+          updateDoc, currentDoc
+        );
         check(insertDoc, mp.checkType);
-        mp.triggerHook('onSubmit', 'submit', mp.currentPage, insertDoc);
-        this.done();
+
+        var hasError = false;
+        try {
+          mp.callSaveTrigger(mp.currentPage, insertDoc);
+          if (mp.isLast) {
+            mp.triggerHook('onSubmit', mp.currentPage, insertDoc, mp);
+          }
+        } catch (e) {
+          console.log('error ', e);
+          hasError = true;
+          this.done(new Error(e.message));
+        }
+
+        if (!hasError) this.done();
+
         return false;
+
+        //this refreshes
+        //this.done();
+        //return true;
+
+        //this does not refresh
+        //this.done();
+        //return false;
       }
     }
   }

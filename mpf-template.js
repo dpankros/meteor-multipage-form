@@ -1,8 +1,18 @@
 Template.MultiPageForm.helpers({
   doc: function() {
-    return this.multipage.doc;
+    if(!this.multipage){
+      console.log('WARN: Multipage is not defined in the this context.')
+      return {};
+    } else {
+      return this.multipage.doc;
+    }
   },
   pageTemplate: function() {
-    return this.multipage.template;
+    if(!this.multipage){
+      console.log('WARN: Multipage is not defined in the this context.')
+      return '';
+    } else {
+      return this.multipage.template;
+    }
   }
 });
