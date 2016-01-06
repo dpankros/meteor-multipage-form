@@ -3,6 +3,9 @@ MutliPageForm
 
 A Meteor package to allow non-linear multi-page form flows using aldeed:auto-form
 
+Installtion
+-----------
+
 ```
 meteor add dpankros:multi-page-form
 ```
@@ -56,21 +59,14 @@ The autoforms would then look like this
     {{> afQuickField name='firstName'}}
     {{> afQuickField name="lastName"}}
     {{> afQuickField name="email"}}
-    <div class="form-group">
-      <button type="submit" class="btn btn-primary">Next</button>
-    </div>
+    {{> mpfButtons}}
   {{/autoForm}}
 </template>
 <template name="tos">
   <div class="tos well pre-scrollable" style="height:50%">Some terms here</div>
   {{# autoForm id="createAccountToS" doc=doc.tos schema=Schemas.tos}}
     {{> afQuickField name="acceptTerms"}}
-    <div class="form-group">
-      <button id="tos-prev" type="button" class="btn btn-default mp-prev">
-        Prev
-      </button>
-      <button type="submit" class="btn btn-primary">Next</button>
-    </div>
+    {{> mpfButtons}}
   {{/ autoForm}}
 </template>
 ```
@@ -93,7 +89,6 @@ Meteor.startup(function() {
           template: 'tos',
           form: 'tos',
           check: App.Schemas.tos,
-          prev: 'info'
         }
       }
     );
@@ -144,18 +139,6 @@ createAccountMP.addHooks({
     onComplete: onCreateAccount,
     onError: onError
 });
-```
-
-MPF also needs access to autoform so we add the autoform hooks to the forms.  
-
-```javascript
-AutoForm.addHooks([
-    'createAccountInfo',
-    'createAccountSub',
-    'createAccountToS'
-  ],
-  createAccountMP.autoFormHooks()
-);
 ```
 
 The autoforms also neeed access to the document so we need to add those too.
@@ -219,20 +202,19 @@ next page.  For example:
    template: 'proform',
    form: 'proform',
    next: 'tos',
-   prev: 'info',
    check: App.Schemas.proform
  },
  tos: {
    template: 'tos',
    form: 'tos',
-   check: App.Schemas.tos,
-   prev: function(doc) {
-     if (doc.info.accountType === 'pro') {
-       return 'proform';
-     } else {
-       return 'info';
-     }
-   }
+   check: App.Schemas.tos
  }
 ```
+
+Working Example
+---------------
+I have a working example that you can download and play with.  i use it for 
+testing but it also is a good learning tool as well as showing a couple other 
+packages I have released.
+
 
