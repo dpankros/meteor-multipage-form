@@ -20,23 +20,27 @@ MultiPageForm = class MultiPageForm {
     );
     this[HOOKNAMES] = ['onComplete', 'onError', 'onSubmit', 'onNext', 'onPrev', 'saveDocument'];
     this[HOOKS] = {
-      saveDocument: [function defaultSaveFn(page, doc, mp) {
-        if (mp[DEBUG]) console.log('MultiPageForm: saveDocument', page, doc);
-        var theDoc = mp.doc || {};
-        theDoc[page] = doc;
-        mp.doc = theDoc;
-        if (mp[DEBUG]) console.log('MultiPageForm: .doc is now ', mp.doc);
-      }]
+      saveDocument: [
+        function defaultSaveFn(page, doc, mp) {
+          if (mp[DEBUG]) console.log('MultiPageForm: saveDocument', page, doc);
+          var theDoc = mp.doc || {};
+          theDoc[page] = doc;
+          mp.doc = theDoc;
+          if (mp[DEBUG]) console.log('MultiPageForm: .doc is now ', mp.doc);
+        }
+      ]
     };
     var that = this;
     //Set the autoform hooks for all forms in the page map and clear other hooks
-    function addHooksToAf(){
-      _(that.pageMap).pluck('form').forEach(function(formId){
-        if ( formId ) {
-          AutoForm.addHooks(formId, that.autoFormHooks(), true);
+    function addHooksToAf() {
+      _(that.pageMap).pluck('form').forEach(function(formId) {
+          if (formId) {
+            AutoForm.addHooks(formId, that.autoFormHooks(), true);
+          }
         }
-      })
+      )
     }
+
     addHooksToAf();
 
   }
@@ -51,33 +55,33 @@ MultiPageForm = class MultiPageForm {
 
   get defaultPage() { return this.pageMap.defaultPage; }
 
-  get hasNextPage() { return !this.isLast; }
+  get hasNextPage() { return !!this.nextPageName; }
 
   get form() { return this.currentDef.form; }
 
-  get isLast() {return !(this.nextPageName); }
+  get isLast() {return !this.nextPageName; }
 
   get hasPrevPage() { return !this.isFirst; }
+
+  get isFirst() {return this.pageStack.length === 0; }
 
   get pageStack() { return this[PAGESTACK].get(); }
 
   set pageStack(val) { this[PAGESTACK].set(val); }
 
-  _pushPage(val){
+  _pushPage(val) {
     var ps = this.pageStack;
     ps.push(val);
     this.pageStack = ps;
     return ps.length;
   }
 
-  _popPage(){
+  _popPage() {
     var ps = this.pageStack;
     var val = ps.pop();
     this.pageStack = ps;
     return val;
   }
-
-  get isFirst() {return this.pageStack.length === 0; }
 
   get nextPageName() {
     var next;
@@ -94,7 +98,8 @@ MultiPageForm = class MultiPageForm {
   }
 
   get prevPageName() {
-    return this.pageStack[ this.pageStack.length - 1 ];
+    //last on the stack
+    return this.pageStack[this.pageStack.length - 1];
   }
 
   nextPage() {
@@ -126,9 +131,10 @@ MultiPageForm = class MultiPageForm {
   get template() { return this.currentDef.template || this.defaultPage; }
 
   reset() {
-    this[DOC] = new ReactiveVar({});
-    this[PAGE] = new ReactiveVar();
-    this[PAGESTACK] = new ReactiveVar([]);
+    if (this[DEBUG]) console.log('reset()');
+    this[DOC].set({});
+    this[PAGE].set(undefined);
+    this.pageStack = [];
   }
 
   addHooks(hooks) {
@@ -159,6 +165,65 @@ MultiPageForm = class MultiPageForm {
     );
   }
 
+  callSubmitTrigger(page, doc) {
+    var submitHooks = this[HOOKS]['onSubmit'];
+    var submitHooksCount = submitHooks.length || 1; //if length is not defined
+    var numDone = 0;
+    var shouldFail = false;
+    var that = this;
+    var ctx = {
+      done: function(opt_err) {
+        numDone++;
+        if (opt_err) {
+          shouldFail = true;
+        }
+        console.log('.done() - numDone', numDone, 'count', submitHooksCount,
+          'should fail?', shouldFail, 'err', opt_err
+        );
+
+        if (numDone === submitHooksCount) {
+          that.result(opt_err);
+        } else if (numDone >= submitHooksCount) {
+          if (this[DEBUG]) console.log(
+            'WARN: .done() called too many times for one form submit', page, doc
+          );
+        }
+      }
+    };
+
+    this.triggerHookWithContext('onSubmit', ctx, this.currentPage, this.doc,
+      this
+    );
+
+    if (shouldFail) {
+      return false;
+    } else {
+      return true;
+    }
+  }
+
+  result(err, result) {
+    if (this[DEBUG]) console.log('MultiPageForm.result', err, result);
+
+    if (err) {
+      if (err instanceof Error) err = err.message;
+      try {
+        this.triggerHook('onError', this.currentPage, this.doc, this, err);
+      } catch (e) {
+        console.error(e.message);
+      }
+    } else {
+      try {
+        this.triggerHook('onComplete', this.currentPage, this.doc, this);
+      } catch (e) {
+        console.error(e.message);
+      } finally {
+        this.reset();
+      }
+    }
+
+  }
+
   triggerHookWithContext(hookName, ctx, page, doc, mp, opt_arg) {
     if (this[DEBUG]) console.log('MultiPageForm.triggerHookWithContext',
       hookName,
@@ -178,134 +243,52 @@ MultiPageForm = class MultiPageForm {
     var that = this;
     ctx = _(ctx).extend({mp: that});
     this[HOOKS][hookName].forEach(function(hookFn) {
-      if (hookFn) hookFn.call(ctx, page, doc, mp, opt_arg);
+        try {
+          if (hookFn) hookFn.call(ctx, page, doc, mp, opt_arg);
+        } catch (e) {
+          console.error(e.message);
+        }
       }
     );
     return true; //true === hooks ran
   }
 
   callSaveTrigger(page, doc) {
-    var numDone = 0;
-    var ctx = {
-      mp: this,
-      done: function(opt_error) {
-        numDone++;
-      }
-    };
-    this.triggerHookWithContext('saveDocument', ctx, page, doc, this );
+    this.triggerHook('saveDocument', page, doc, this);
   }
 
   autoFormHooks() {
     var mp = this;
     return {
       onSuccess: function(formType, result) {
-        if (mp[DEBUG]) console.log('MultiPageForm.onSuccess hook', formType, result);
-        if (mp.hasNextPage) {
-          mp.nextPage();
-        } else {
-          mp.triggerHook('onComplete', mp.currentPage, mp.doc, mp);
-          mp.reset();
-        }
+        if (mp[DEBUG]) console.log('MultiPageForm.onSuccess hook', formType,
+          result
+        );
+        if (mp.hasNextPage) mp.nextPage();
       },
       onError: function(formType, error) {
-        if (mp[DEBUG]) console.log('MultiPageForm.onError hook', formType, error);
+        if (mp[DEBUG]) console.log('MultiPageForm.onError hook', formType,
+          error
+        );
         mp.triggerHook('onError', mp.currentPage, mp.doc, mp, error);
       },
       onSubmit: function(insertDoc, updateDoc, currentDoc) {
-        if (mp[DEBUG]) console.log('MultiPageForm.onSubmit hook', insertDoc,
-          updateDoc, currentDoc
+        if (mp[DEBUG]) console.log('MultiPageForm.onSubmit hook',
+          JSON.stringify(insertDoc)
         );
         check(insertDoc, mp.checkType);
 
-        this.event.preventDefault();
-        
-        var hasError = false;
-        var isLast = mp.isLast;
         try {
           mp.callSaveTrigger(mp.currentPage, insertDoc);
-          if (isLast) {
-            mp.triggerHook('onSubmit', mp.currentPage, mp.doc, mp);
-          }
-        } catch (e) {
-          console.log('Error ', e);
-          hasError = true;
-          //this.endSubmission();
-        }
-
-        if (!hasError) {
-
+          if (mp.isLast) mp.callSubmitTrigger(mp.currentPage, mp.doc, mp);
           this.done();
-
-          //if (isLast){
-          //  this.endSubmission();
-          //} else {
-          //  this.done();
-          //}
+        } catch (e) {
+          mp.triggerHook('onError', mp.currentPage, mp.doc, mp, e.message);
+          this.done(e);
         }
 
         return false;
-      },
-
-
-
-
-      before: {
-        // Replace `formType` with the form `type` attribute to which this hook applies
-        normal: function(doc) {
-          // Potentially alter the doc
-          console.log('before', doc);
-          return doc;
-        }
-      },
-
-      // The same as the callbacks you would normally provide when calling
-      // collection.insert, collection.update, or Meteor.call
-      after: {
-        // Replace `formType` with the form `type` attribute to which this hook applies
-        formType: function(error, result) {
-          console.log('after', error, result);
-        }
-      },
-
-      // Called every time an insert or typeless form
-      // is revalidated, which can be often if keyup
-      // validation is used.
-      formToDoc: function(doc) {
-        console.log('formToDoc', doc);
-        // alter doc
-        return doc;
-      },
-
-      // Called every time an update or typeless form
-      // is revalidated, which can be often if keyup
-      // validation is used.
-      formToModifier: function(modifier) {
-        // alter modifier
-        // return modifier;
-        console.log('formToModifier', modifier);
-        return modifier;
-      },
-
-      // Called whenever `doc` attribute reactively changes, before values
-      // are set in the form fields.
-      //docToForm: function(doc, ss) {},
-
-      // Called at the beginning and end of submission, respectively.
-      // This is the place to disable/enable buttons or the form,
-      // show/hide a "Please wait" message, etc. If these hooks are
-      // not defined, then by default the submit button is disabled
-      // during submission.
-      beginSubmit: function() {
-        console.log('begin submit');
-      },
-      endSubmit: function() {
-        console.log('endSubmit');
       }
-
-
-
-
-
     }
   }
 };
