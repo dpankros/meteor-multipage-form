@@ -217,4 +217,5 @@ I have a working example that you can download and play with.  i use it for
 testing but it also is a good learning tool as well as showing a couple other 
 packages I have released.
 
+https://github.com/dpankros/meteor-multipage-form-test.git
 
