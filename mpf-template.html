@@ -1,3 +1,17 @@
+
+
 <template name="MultiPageForm">
-  {{> DynamicTemplate data=doc template=pageTemplate}}
+  {{> Template.dynamic data=doc template=pageTemplate}}
+</template>
+
+
+<template name="mpfButtons">
+  <div class="form-group">
+    {{#if hasPrev}}
+    <button type="button" class="btn btn-default mp-prev">Prev</button>
+    {{/if}}
+    <button type="submit" class="btn btn-primary"> {{!-- not .mp-next !!--}}
+      {{#if isLast}}Submit{{else}}Next{{/if}}
+    </button>
+  </div>
 </template>

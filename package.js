@@ -1,5 +1,5 @@
 Package.describe({
-  name: 'dpankros:multi-page-form',
+  name: 'dpankros:multipage-form',
   version: '0.0.1',
   // Brief, one-line summary of the package.
   summary: '',
@@ -25,16 +25,23 @@ Package.onUse(function(api) {
     'reactive-var',
     'reactive-dict',
     'random',
-    'jquery'
+    'jquery',
+    'check',
+    'aldeed:simple-schema',
+    'aldeed:autoform@4.0.0 || 5.0.0'
   ], 'client');
 
-  api.use('underscore');
+  api.imply([
+    'aldeed:autoform'
+    ], 'client');
+
   api.addFiles([
     'multi-page-form.js',
     'mpf-template.html',
     'mpf-template.js'
   ], 'client');
-  api.export('MultiPageForm');
+
+  api.export('MultiPageForm', 'client');
 });
 
 Package.onTest(function(api) {
