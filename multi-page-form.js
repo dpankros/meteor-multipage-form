@@ -40,9 +40,7 @@ MultiPageForm = class MultiPageForm {
         }
       )
     }
-
     addHooksToAf();
-
   }
 
   get pageMap() { return this[PAGEMAP] || {}; }

@@ -10,17 +10,27 @@ Installtion
 meteor add dpankros:multi-page-form
 ```
   
+Example
+---------------
+I have a working example that you can download and play with.  I use it for 
+testing but it is also a good learning tool.  It also shows a couple other 
+packages I have released.
+
+https://github.com/dpankros/meteor-multipage-form-test.git
+  
+
+
 Basic Example
 -------------
-
 Let's say you want users to signup using a general information page and then a
 terms of service agreement. This is a basic multi-page form (MPF) flow.
 
 First, let's define some basics.  I like to use simple-schema to define my forms.
-It's not required, but I think it makes things cleaner.  Really we just need to 
+It's not required, but I think it makes things cleaner.  Really, we just need to 
 define an autoform for each page.
 
 ```javascript
+//info schema
 App.Schemas.info = new SimpleSchema({
   username: {
     type:String,
@@ -40,6 +50,7 @@ App.Schemas.info = new SimpleSchema({
     regEx: SimpleSchema.RegEx.Email
   }
 });
+//terms of service schema
 App.Schemas.tos = new SimpleSchema({
   acceptTerms: {
     type: Boolean,
@@ -59,7 +70,8 @@ The autoforms would then look like this
     {{> afQuickField name='firstName'}}
     {{> afQuickField name="lastName"}}
     {{> afQuickField name="email"}}
-    {{> mpfButtons}}
+{{!-- this last line creates next and prev buttons based on where it appears in the chain of forms --}}
+    {{> mpfButtons}}  
   {{/autoForm}}
 </template>
 <template name="tos">
@@ -72,23 +84,23 @@ The autoforms would then look like this
 ```
 
 Up to this point, we really aren't doing anything you wouldn't otherwise do when
-using autoform.  We need to define the page flow
+using Autoform, but we need to define the page flow
 
 ```javascript
 var createAccountMP;
 Meteor.startup(function() {
     createAccountMP = new MultiPageForm({
-        defaultPage: 'info',
-        info: {
-          template: 'info',
-          form: 'info',
-          next: 'tos'
-          check: App.Schemas.info
+        defaultPage: 'info', //the name of the start page
+        info: { //info page  <-- start page
+          template: 'info', //blaze template
+          form: 'info',     //autoform id
+          next: 'tos',      //the next apge
+          check: App.Schemas.info  //a schema to check on submit
         },
-        tos: {
-          template: 'tos',
-          form: 'tos',
-          check: App.Schemas.tos,
+        tos: { //terms of service page
+          template: 'tos',  //blaze template
+          form: 'tos',      //autoform id
+          check: App.Schemas.tos, //a schema to check on submit
         }
       }
     );
@@ -100,7 +112,7 @@ the page flow. That is, we start at the "info" page.  Next, we define the pages
 and their properties.  Here, the "info" page uses the 'info' blaze template, an 
 autoform with an id of 'info', and the next page is 'tos.'  Check allows MPF to 
 verify the document when submitted.  If you're using autoform, as shown in this
-example, this is redundant because the autoform does the check first.  You could,
+example, this is redundant because the autoform probably does the check first.  You could,
 however define an additioal schema with more detailed requirements that would be
 checked only upon submit.
 
@@ -109,25 +121,27 @@ submit.  Fortunately, MPF allows for callbacks to be called when events such as
 submit or previous is clicked.
 
 ```javascript
-function onCreate(method, doc) {
-  //do submit action
-  try {
-    createAccount(doc);
-  } catch (e) {
-    console.log(e);
-  }
+/*
+ *When the FINAL form is submitted and the basic checks have been completed 
+ *successfully.  This is where you DO something.
+ */
+function onFormSubmit(page, doc, mp) {
+  createAccount(doc);
 }
-function onFormSubmit(method, page, doc) {
-  //mp is the MultiPageForm instance, which is in the 'this' context
-  if (method === 'submit') {
-    //save the document
-    var theDoc = this.mp.doc;
-    theDoc[page] = doc;
-    this.mp.doc = theDoc;
-  }
+/*
+ * When the form is submitted and everything is successful.  Maybe put up a 
+ * success modal?
+ */
+function onCreate(page, doc, mp) {
+  //do success action
+  showSuccessModal(doc);
 }
+/*
+ * When the form is submitted and there is an error.  Maybe put up a error alert?
+ */
 function onError(method, e, doc) {
   console.error(e, doc);
+  AlertCategory.getOrCreate('accountCreate').show('danger', 'CreateAccount() Failed');
 }
 ```
 
@@ -141,7 +155,8 @@ createAccountMP.addHooks({
 });
 ```
 
-The autoforms also neeed access to the document so we need to add those too.
+The autoforms (really, the Blaze templates) also neeed access to the document so 
+we need to add those too.
 ```javascript
 Template.info.helpers({
   doc: function() {
@@ -160,7 +175,7 @@ At this point, the flow should work and there are two forms that flow back and f
 Advanced Example
 ----------------
 The basic example is great, but it is linear and there are other options for
-accomplishing that.  Some of those options are easier to configure.  The most
+accomplishing that (and some of those options are easier to configure than MPF).  The most
 obvious question is, why do I want non-linear flows?  Lets answer that with an
 example.  Let's say you have two groups of users.  One are consumers and the 
 other are industry professionals.  The consumers can fill out the info form and
@@ -191,31 +206,36 @@ next page.  For example:
    form: 'info',
    next: function(doc, mp) {
      if (doc.info.accountType === 'pro') {
-       return 'proform';
+       return 'proform'; // <-- pros go here
      } else {
-       return 'tos';
+       return 'tos';  //<-- everyone else goes here
      }
    },
    check: App.Schemas.info
  },
- proform: {
+ proform: { //<-- the extra page shown to "pros"
    template: 'proform',
    form: 'proform',
    next: 'tos',
    check: App.Schemas.proform
  },
- tos: {
+ tos: { // <-- the final terms of service that everyone sees
    template: 'tos',
    form: 'tos',
    check: App.Schemas.tos
  }
 ```
+This isn't the only use case, either.  Shopping cart checkout could be another.
+For example, a guest checkout may require extra information that a registered user
+may not.  Thus, the guests may need to be shown an extra page of a form.  It seems
+simple but it can be amazingly useful.
 
-Working Example
----------------
-I have a working example that you can download and play with.  i use it for 
-testing but it also is a good learning tool as well as showing a couple other 
-packages I have released.
+Things to Know or Consider
+--------------------------
+1. The previous pages are stored in a stack so you always go back from where you came. You can set the pageStack to something else but you may really mess things up and so this is unsupported for now.
+1. The doc by default uses a sub-object for each page of the form.  I have contemplated allowing this to be different, but I haven't implemeted and/or tested it.  If you need this, a workarouns is to modify the form in the onSubmit hook.
+1. If you want to advance programatically to another page, you can call nextPage() or prevPage() of the mpf object
+1. You can call addHooks multiple times and receive multiple callbacks.  setHooks will clear all the previous hooks and set the new ones.  clearHooks clears all the hooks.  If you use setHooks or clearHooks, you MUST provide a saveDocument hook or MPF will not save any data
+1. The saveDocument hook is called after each page of the form is submitted.
 
-https://github.com/dpankros/meteor-multipage-form-test.git
 
