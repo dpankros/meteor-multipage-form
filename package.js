@@ -27,7 +27,7 @@ Package.onUse(function(api) {
     'random',
     'jquery',
     'check',
-    'aldeed:simple-schema',
+    'aldeed:simple-schema@1.1.0',
     'aldeed:autoform@4.0.0 || 5.0.0'
   ], 'client');
 
@@ -47,5 +47,5 @@ Package.onUse(function(api) {
 Package.onTest(function(api) {
   api.use('ecmascript');
   api.use('tinytest');
-  api.use('dpankros:multi-page-form');
+  api.use('dpankros:multipage-form');
 });
