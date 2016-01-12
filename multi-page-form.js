@@ -1,4 +1,4 @@
-const DEBUG_DEFAULT = true; //default debug status
+const DEBUG_DEFAULT = false; //default debug status
 
 var PAGEMAP = Symbol("PageMap");
 var PAGESTACK = Symbol('PageStack');
