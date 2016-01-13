@@ -41,7 +41,6 @@ Template.mpfButtons.helpers({
     return multipage;
   },
   hasPrev:function(){
-    console.log('Autoform is', AutoForm.getFormId());
     var multipage = findInParentData(this, 'multipage');
     if(!multipage){
       console.log('WARN: Multipage is not defined in the this context. mpfButtons must appear only within a MultiPageForm.')

@@ -40,6 +40,7 @@ MultiPageForm = class MultiPageForm {
         }
       )
     }
+
     addHooksToAf();
   }
 
@@ -63,7 +64,7 @@ MultiPageForm = class MultiPageForm {
 
   get isFirst() {return this.pageStack.length === 0; }
 
-  get pageStack() { return this[PAGESTACK].get(); }
+  get pageStack() { return this[PAGESTACK].get() || []; }
 
   set pageStack(val) { this[PAGESTACK].set(val); }
 
@@ -164,7 +165,7 @@ MultiPageForm = class MultiPageForm {
   }
 
   callSubmitTrigger(page, doc) {
-    var submitHooks = this[HOOKS]['onSubmit'];
+    var submitHooks = this[HOOKS]['onSubmit'] || [];
     var submitHooksCount = submitHooks.length || 1; //if length is not defined
     var numDone = 0;
     var shouldFail = false;
@@ -175,9 +176,6 @@ MultiPageForm = class MultiPageForm {
         if (opt_err) {
           shouldFail = true;
         }
-        console.log('.done() - numDone', numDone, 'count', submitHooksCount,
-          'should fail?', shouldFail, 'err', opt_err
-        );
 
         if (numDone === submitHooksCount) {
           that.result(opt_err);
@@ -232,7 +230,7 @@ MultiPageForm = class MultiPageForm {
     );
 
     //no hooks to run, just return false (no hooks)
-    if (this[HOOKS][hookName].length === 0) return false;
+    if (!this[HOOKS][hookName] || this[HOOKS][hookName].length === 0) return false;
 
     if (!doc) {
       doc = AutoForm.getFormValues(this.form);
