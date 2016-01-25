@@ -104,6 +104,8 @@ Meteor.startup(function() {
         }
       }
     );
+  }
+);
 ```
 
 This does several things.  First, we create a new MultiPageForm object.  The JSON
