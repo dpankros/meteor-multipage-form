@@ -12,7 +12,7 @@ MultiPageForm = class MultiPageForm {
   constructor(pageMap, doc) {
     if (!pageMap) throw new Error('PageMap is required');
     this[PAGEMAP] = pageMap;
-    this[DEBUG] = DEBUG_DEFAULT;
+    this.debug = DEBUG_DEFAULT;
     this[PAGESTACK] = new ReactiveVar([]);
     this[DOC] = new ReactiveVar(doc || {});
     this[PAGE] = new ReactiveVar(
@@ -22,11 +22,11 @@ MultiPageForm = class MultiPageForm {
     this[HOOKS] = {
       saveDocument: [
         function defaultSaveFn(page, doc, mp) {
-          if (mp[DEBUG]) console.log('MultiPageForm: saveDocument', page, doc);
+          if (mp.debug) console.log('MultiPageForm: saveDocument', page, doc);
           var theDoc = mp.doc || {};
           theDoc[page] = doc;
           mp.doc = theDoc;
-          if (mp[DEBUG]) console.log('MultiPageForm: .doc is now ', mp.doc);
+          if (mp.debug) console.log('MultiPageForm: .doc is now ', mp.doc);
         }
       ]
     };
@@ -43,6 +43,10 @@ MultiPageForm = class MultiPageForm {
 
     addHooksToAf();
   }
+
+  set debug(value) { this._debug = value; }
+
+  get debug() { return this._debug; }
 
   get pageMap() { return this[PAGEMAP] || {}; }
 
@@ -130,7 +134,7 @@ MultiPageForm = class MultiPageForm {
   get template() { return this.currentDef.template || this.defaultPage; }
 
   reset() {
-    if (this[DEBUG]) console.log('reset()');
+    if (this.debug) console.log('reset()');
     this[DOC].set({});
     this[PAGE].set(undefined);
     this.pageStack = [];
@@ -180,7 +184,7 @@ MultiPageForm = class MultiPageForm {
         if (numDone === submitHooksCount) {
           that.result(opt_err);
         } else if (numDone >= submitHooksCount) {
-          if (this[DEBUG]) console.log(
+          if (this.debug) console.log(
             'WARN: .done() called too many times for one form submit', page, doc
           );
         }
@@ -199,7 +203,7 @@ MultiPageForm = class MultiPageForm {
   }
 
   result(err, result) {
-    if (this[DEBUG]) console.log('MultiPageForm.result', err, result);
+    if (this.debug) console.log('MultiPageForm.result', err, result);
 
     if (err) {
       if (err instanceof Error) err = err.message;
@@ -221,7 +225,7 @@ MultiPageForm = class MultiPageForm {
   }
 
   triggerHookWithContext(hookName, ctx, page, doc, mp, opt_arg) {
-    if (this[DEBUG]) console.log('MultiPageForm.triggerHookWithContext',
+    if (this.debug) console.log('MultiPageForm.triggerHookWithContext',
       hookName,
       ctx,
       page,
@@ -257,19 +261,19 @@ MultiPageForm = class MultiPageForm {
     var mp = this;
     return {
       onSuccess: function(formType, result) {
-        if (mp[DEBUG]) console.log('MultiPageForm.onSuccess hook', formType,
+        if (mp.debug) console.log('MultiPageForm.onSuccess hook', formType,
           result
         );
         if (mp.hasNextPage) mp.nextPage();
       },
       onError: function(formType, error) {
-        if (mp[DEBUG]) console.log('MultiPageForm.onError hook', formType,
+        if (mp.debug) console.log('MultiPageForm.onError hook', formType,
           error
         );
         mp.triggerHook('onError', mp.currentPage, mp.doc, mp, error);
       },
       onSubmit: function(insertDoc, updateDoc, currentDoc) {
-        if (mp[DEBUG]) console.log('MultiPageForm.onSubmit hook',
+        if (mp.debug) console.log('MultiPageForm.onSubmit hook',
           JSON.stringify(insertDoc)
         );
         check(insertDoc, mp.checkType);

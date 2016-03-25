@@ -1,6 +1,6 @@
 Package.describe({
   name: 'dpankros:multipage-form',
-  version: '1.0.1',
+  version: '1.0.2',
   // Brief, one-line summary of the package.
   summary: 'Adds complex, non-linear multi-page flows to AutoForm',
   // URL to the Git repository containing the source code for this package.
