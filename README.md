@@ -1,3 +1,8 @@
+WARNING: DEPRECATED
+==========
+I feel that blaze is dead if not near-death.  Personally, I have switched over to react and am happier for it.  Thus, I will not be maintaining this package moving forward.  If you use it and want to take it over, please let me know.  If nobody steps up to take over the project, I reserve the right to delete it after 1 Aug 2017.
+
+
 MutliPageForm
 =============
 
